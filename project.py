@@ -8,9 +8,14 @@ st.set_page_config(page_title="Cinema Customer Dashboard", layout="wide")
 @st.cache_data
 def load_data():
     df = pd.read_csv("cinema_customers_expanded.csv")
-    df = df[df['Type'].str.lower() != 'non member']  
-    df = df.dropna()
+
+    
+    df['Type'] = df['Type'].astype(str).str.strip().str.lower()
+
+    df = df[~df['Type'].str.contains('non.?member', regex=True)]
+
     df['Total'] = pd.to_numeric(df['Total'], errors='coerce')
+
     return df
 
 df = load_data()
