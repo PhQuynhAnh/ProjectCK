@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
 
 # Page config
 st.set_page_config(page_title="Cinema Customer Dashboard", layout="wide")
@@ -7,7 +8,12 @@ st.set_page_config(page_title="Cinema Customer Dashboard", layout="wide")
 @st.cache_data
 def load_data():
     df = pd.read_csv("cinema_customers_expanded.csv")
-    df = df[df['Type'].str.lower() != 'non member']  # Loại bỏ non-member
+
+    # Chuẩn hóa cột Type và loại bỏ non-member
+    df['Type'] = df['Type'].astype(str).str.strip().str.lower()
+    df = df[~df['Type'].str.contains('non.?member', regex=True)]
+    df['Type'] = df['Type'].str.title()
+
     df = df.dropna()
     df[['Movie_watched_month', 'Snacks_popcorn', 'Total']] = df[['Movie_watched_month', 'Snacks_popcorn', 'Total']].apply(pd.to_numeric, errors='coerce')
     return df
@@ -41,6 +47,13 @@ with st.sidebar:
 
     time_frame = st.selectbox("Display Mode", ["Daily", "Cumulative"])
 
+    # Tùy chọn tương quan
+    st.subheader("📈 Correlation Analysis")
+    correlation_col = st.selectbox(
+        "Compare Total Spending with:",
+        options=["Age", "Movie_watched_month", "Snacks_popcorn"]
+    )
+
 # Filter data
 df_filtered = df[
     (df['Type'].isin(selected_types)) &
@@ -48,7 +61,7 @@ df_filtered = df[
     (df['Year'].between(*year_range))
 ].copy()
 
-# Add daily index for plotting (fake daily just to simulate time)
+# Add fake date index
 df_filtered['DATE'] = pd.date_range(start='2023-01-01', periods=len(df_filtered), freq='D')
 df_filtered.set_index('DATE', inplace=True)
 
@@ -59,7 +72,6 @@ for col in ['Movie_watched_month', 'Snacks_popcorn', 'Total']:
 
 # Display
 st.title("🍿 Cinema Customer Dashboard")
-
 st.subheader("Key Metrics")
 cols = st.columns(3)
 
@@ -75,6 +87,22 @@ for col, (title, column, color) in zip(cols, metrics):
     total_value = df_display[column].iloc[-1] if time_frame == "Cumulative" else df_display[column].sum()
     display_metric(col, title, total_value, df_display, column, color)
 
-# Data preview
+# Show DataFrame
 with st.expander("📄 Show Raw Data"):
     st.dataframe(df_filtered.reset_index())
+
+# Correlation Section
+st.subheader(f"📈 Correlation: Total vs {correlation_col}")
+
+if not df_filtered.empty:
+    corr_chart = alt.Chart(df_filtered).mark_circle(size=60, opacity=0.6).encode(
+        x=alt.X(correlation_col, title=correlation_col),
+        y=alt.Y("Total", title="Total Spending"),
+        tooltip=["Type", "Age", "Total"]
+    )
+
+    regression_line = corr_chart.transform_regression(correlation_col, "Total").mark_line(color="red")
+
+    st.altair_chart(corr_chart + regression_line, use_container_width=True)
+else:
+    st.warning("No data available after filtering.")
