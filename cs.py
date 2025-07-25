@@ -100,4 +100,9 @@ if not df_filtered.empty:
         st.altair_chart(bar, use_container_width=True)
 else:
     st.warning("No data after filtering.")
+st.subheader("📈 Correlation Settings")
+x_axis = st.selectbox(
+    "Choose variable to compare with Total Spending", 
+    options=["Age", "Year", "Movie_watched_month", "Snacks_popcorn", "Type"]
+)
 
